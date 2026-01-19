@@ -71,6 +71,34 @@ app.get('/api/matches', async (req, res) => {
   }
 });
 
+app.delete('/api/events/undo', async (req, res) => {
+  const { matchId, actionType } = req.body;
+
+  try {
+    // Vi bruger en subquery til at finde ID'et på den NYESTE (seneste) handling
+    // af den type for den specifikke kamp, og sletter kun den.
+    const result = await pool.query(
+      `DELETE FROM match_events
+       WHERE id = (
+         SELECT id FROM match_events
+         WHERE match_id = $1 AND action_type = $2
+         ORDER BY timestamp DESC
+         LIMIT 1
+       )`,
+      [matchId, actionType]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Ingen handling fundet at fortryde' });
+    }
+
+    res.json({ message: 'Handling fortrudt i databasen' });
+  } catch (err) {
+    console.error('Fejl ved undo:', err);
+    res.status(500).json({ error: 'Kunne ikke fortryde handling' });
+  }
+});
+
 const PORT = process.env.PORT || 10000; // Render bruger ofte port 10000
 app.listen(PORT, () => {
   console.log(`Serveren kører på port ${PORT}`);
