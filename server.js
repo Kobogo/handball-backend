@@ -73,7 +73,7 @@ app.get('/api/matches', async (req, res) => {
 
 app.delete('/api/events/undo', async (req, res) => {
   const { matchId, actionType } = req.body;
-
+  console.log(`Undo forsøgt for match: ${matchId}, type: ${actionType}`);
   try {
     // Vi bruger en subquery til at finde ID'et på den NYESTE (seneste) handling
     // af den type for den specifikke kamp, og sletter kun den.
