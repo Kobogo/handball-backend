@@ -40,7 +40,7 @@ app.post('/api/matches/start', async (req, res) => {
   }
 });
 
-// 2. GEM KLIK: Registrerer hver handling (save, goal, miss)
+// 2. GEM KLIK: Registrerer hver handling (inkl. det nye 'team_goal')
 app.post('/api/events', async (req, res) => {
   const { matchId, actionType } = req.body;
 
@@ -61,16 +61,34 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
-// 3. HENT HISTORIK (Valgfri): Hvis man vil se tidligere kampe senere
+// 3. HENT HISTORIK: Beregner samlet statistik for alle kampe direkte i databasen
 app.get('/api/matches', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM matches ORDER BY created_at DESC');
+    // Denne SQL-sætning "joiner" kampene med deres events og tæller hver type for sig
+    const result = await pool.query(`
+      SELECT
+          m.id,
+          m.league,
+          m.home_team,
+          m.away_team,
+          m.created_at,
+          COUNT(e.id) FILTER (WHERE e.action_type = 'save') as saves,
+          COUNT(e.id) FILTER (WHERE e.action_type = 'goal') as goals_against,
+          COUNT(e.id) FILTER (WHERE e.action_type = 'miss') as missed,
+          COUNT(e.id) FILTER (WHERE e.action_type = 'team_goal') as team_goals
+      FROM matches m
+      LEFT JOIN match_events e ON m.id = e.match_id
+      GROUP BY m.id
+      ORDER BY m.created_at DESC;
+    `);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: 'Kunne ikke hente kampe' });
+    console.error('Fejl ved hentning af historik:', err);
+    res.status(500).json({ error: 'Kunne ikke hente historik' });
   }
 });
 
+// 4. UNDO: Sletter det seneste event af en bestemt type for en kamp
 app.post('/api/events/undo', async (req, res) => {
   const { matchId, actionType } = req.body;
   console.log(`Undo modtaget for kamp: ${matchId}, type: ${actionType}`);
@@ -86,6 +104,11 @@ app.post('/api/events/undo', async (req, res) => {
        )`,
       [matchId, actionType]
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Ingen handling fundet' });
+    }
+
     res.json({ message: 'Handling fortrudt' });
   } catch (err) {
     console.error('Fejl ved undo:', err);
@@ -93,7 +116,7 @@ app.post('/api/events/undo', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 10000; // Render bruger ofte port 10000
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Serveren kører på port ${PORT}`);
 });
