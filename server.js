@@ -71,12 +71,11 @@ app.get('/api/matches', async (req, res) => {
   }
 });
 
-app.delete('/api/events/undo', async (req, res) => {
+app.post('/api/events/undo', async (req, res) => {
   const { matchId, actionType } = req.body;
-  console.log(`Undo forsøgt for match: ${matchId}, type: ${actionType}`);
+  console.log(`Undo modtaget for kamp: ${matchId}, type: ${actionType}`);
+
   try {
-    // Vi bruger en subquery til at finde ID'et på den NYESTE (seneste) handling
-    // af den type for den specifikke kamp, og sletter kun den.
     const result = await pool.query(
       `DELETE FROM match_events
        WHERE id = (
@@ -87,15 +86,10 @@ app.delete('/api/events/undo', async (req, res) => {
        )`,
       [matchId, actionType]
     );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'Ingen handling fundet at fortryde' });
-    }
-
-    res.json({ message: 'Handling fortrudt i databasen' });
+    res.json({ message: 'Handling fortrudt' });
   } catch (err) {
     console.error('Fejl ved undo:', err);
-    res.status(500).json({ error: 'Kunne ikke fortryde handling' });
+    res.status(500).json({ error: 'Kunne ikke fortryde' });
   }
 });
 
