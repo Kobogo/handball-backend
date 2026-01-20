@@ -40,7 +40,7 @@ app.post('/api/matches/start', async (req, res) => {
   }
 });
 
-// 2. GEM KLIK: Registrerer hver handling (inkl. det nye 'team_goal')
+// 2. GEM KLIK: Registrerer hver handling
 app.post('/api/events', async (req, res) => {
   const { matchId, actionType } = req.body;
 
@@ -61,10 +61,9 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
-// 3. HENT HISTORIK: Beregner samlet statistik for alle kampe direkte i databasen
+// 3. HENT HISTORIK: Beregner samlet statistik
 app.get('/api/matches', async (req, res) => {
   try {
-    // Denne SQL-sætning "joiner" kampene med deres events og tæller hver type for sig
     const result = await pool.query(`
       SELECT
           m.id,
@@ -88,10 +87,9 @@ app.get('/api/matches', async (req, res) => {
   }
 });
 
-// 4. UNDO: Sletter det seneste event af en bestemt type for en kamp
+// 4. UNDO: Sletter det seneste event
 app.post('/api/events/undo', async (req, res) => {
   const { matchId, actionType } = req.body;
-  console.log(`Undo modtaget for kamp: ${matchId}, type: ${actionType}`);
 
   try {
     const result = await pool.query(
@@ -113,6 +111,37 @@ app.post('/api/events/undo', async (req, res) => {
   } catch (err) {
     console.error('Fejl ved undo:', err);
     res.status(500).json({ error: 'Kunne ikke fortryde' });
+  }
+});
+
+// 5. SLET KAMP: Fjerner både kampen og alle tilhørende events (NY)
+app.delete('/api/matches/:id', async (req, res) => {
+  const { id } = req.params;
+  console.log(`Anmodning om sletning af kamp ID: ${id}`);
+
+  try {
+    // Start transaktion
+    await pool.query('BEGIN');
+
+    // 1. Slet alle tilknyttede events først pga. Foreign Key
+    await pool.query('DELETE FROM match_events WHERE match_id = $1', [id]);
+
+    // 2. Slet selve kampen
+    const result = await pool.query('DELETE FROM matches WHERE id = $1', [id]);
+
+    // Gem ændringer
+    await pool.query('COMMIT');
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Kampen blev ikke fundet' });
+    }
+
+    res.json({ message: 'Kamp og data slettet succesfuldt' });
+  } catch (err) {
+    // Hvis noget fejler, annuller alle sletninger i denne omgang
+    await pool.query('ROLLBACK');
+    console.error('Fejl ved sletning:', err);
+    res.status(500).json({ error: 'Server fejl ved sletning' });
   }
 });
 
