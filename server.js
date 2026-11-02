@@ -128,9 +128,13 @@ app.post('/api/events/undo', async (req, res) => {
     `;
     const params = [matchId, actionType];
 
+    // Hvis der er et goalkeeperId (og det ikke er tomt/undefined)
     if (goalkeeperId) {
       query += ` AND goalkeeper_id = $3 `;
       params.push(goalkeeperId);
+    } else {
+      // Hvis det er et holdmål (uden målmand), skal vi tjekke hvor goalkeeper_id er NULL
+      query += ` AND goalkeeper_id IS NULL `;
     }
 
     query += ` ORDER BY timestamp DESC LIMIT 1)`;
