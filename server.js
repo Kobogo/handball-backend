@@ -137,7 +137,10 @@ app.post('/api/events/undo', async (req, res) => {
       query += ` AND goalkeeper_id IS NULL `;
     }
 
-    query += ` ORDER BY id DESC LIMIT 1`;
+    // Afslut med ORDER BY id og luk parentesen for WHERE id = (...)
+    query += ` ORDER BY id DESC LIMIT 1
+      )
+    `;
 
     const result = await pool.query(query, params);
 
