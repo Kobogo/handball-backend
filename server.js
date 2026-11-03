@@ -137,7 +137,7 @@ app.post('/api/events/undo', async (req, res) => {
       query += ` AND goalkeeper_id IS NULL `;
     }
 
-    query += ` ORDER BY timestamp DESC LIMIT 1)`;
+    query += ` ORDER BY created_at DESC LIMIT 1)`;
 
     const result = await pool.query(query, params);
 
